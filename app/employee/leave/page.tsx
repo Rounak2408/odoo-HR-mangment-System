@@ -98,6 +98,23 @@ export default function LeavePage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (employee && formData.startDate && formData.endDate && formData.reason) {
+      // Get today's date in YYYY-MM-DD format
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const todayStr = today.toISOString().split("T")[0]
+      
+      // Validate that start date is not in the past
+      if (formData.startDate < todayStr) {
+        alert("You cannot apply for leave on past dates. Please select today or a future date.")
+        return
+      }
+      
+      // Validate that end date is not before start date
+      if (formData.endDate < formData.startDate) {
+        alert("End date cannot be before start date. Please select a valid date range.")
+        return
+      }
+      
       // Load all leave requests from localStorage
       const storedRequests = localStorage.getItem("dayflow_leave_requests")
       let allRequests: any[] = []
@@ -187,10 +204,21 @@ export default function LeavePage() {
                       name="startDate"
                       value={formData.startDate}
                       onChange={handleInputChange}
+                      min={new Date().toISOString().split("T")[0]}
                       required
                     />
-                    <Input type="date" name="endDate" value={formData.endDate} onChange={handleInputChange} required />
+                    <Input 
+                      type="date" 
+                      name="endDate" 
+                      value={formData.endDate} 
+                      onChange={handleInputChange}
+                      min={formData.startDate || new Date().toISOString().split("T")[0]}
+                      required 
+                    />
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    You cannot apply for leave on past dates. Start date must be today or later.
+                  </p>
                 </div>
               </div>
               <div className="space-y-2">

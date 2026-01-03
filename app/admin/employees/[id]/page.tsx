@@ -127,6 +127,11 @@ export default function EmployeeDetailPage() {
       }
     }
 
+    // Join date is fixed and cannot be changed - preserve original join date
+    if (formData.joinDate !== employee.joinDate) {
+      formData.joinDate = employee.joinDate
+    }
+
     // Update employee state
     setEmployee(formData)
     setIsEditing(false)
@@ -335,17 +340,14 @@ export default function EmployeeDetailPage() {
             </div>
             <div>
               <label className="text-sm font-medium">Join Date</label>
-              {isEditing ? (
-                <Input 
-                  name="joinDate" 
-                  type="date"
-                  value={formData.joinDate} 
-                  onChange={handleInputChange} 
-                  className="mt-1"
-                />
-              ) : (
-                <Input disabled value={employee.joinDate} className="mt-1" />
-              )}
+              <Input 
+                disabled 
+                value={employee.joinDate} 
+                className="mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Join date is fixed and cannot be changed. It was set when the employee was approved.
+              </p>
             </div>
             <div>
               <label className="text-sm font-medium">Annual Salary</label>
