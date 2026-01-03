@@ -182,14 +182,11 @@ export default function SignUp() {
 
       // Create pending registration object
       const pendingRegistration = {
-        id: `PENDING-${Date.now()}`,
         employeeId: formData.employeeId,
         email: formData.email,
         name: formData.email.split("@")[0],
         password: formData.password, // Store password for later approval
         role: formData.role,
-        status: "pending",
-        registrationDate: new Date().toISOString(),
         ...(isEmployee && {
           department: formData.department,
           position: formData.position,
@@ -202,21 +199,30 @@ export default function SignUp() {
         }),
       }
 
-      // Save as pending registration instead of creating account directly
-      try {
-        const existingPending = localStorage.getItem("dayflow_pending_registrations")
-        const pendingList = existingPending ? JSON.parse(existingPending) : []
-        pendingList.push(pendingRegistration)
-        localStorage.setItem("dayflow_pending_registrations", JSON.stringify(pendingList))
-      } catch (error) {
-        console.error("Error saving pending registration:", error)
-      }
-
-      // Show success message and redirect to sign in
-      setError("")
-      alert("Registration submitted successfully! Please wait for admin approval. You will be able to sign in once your account is approved.")
-      router.push("/auth/signin")
-      setLoading(false)
+      // Save as pending registration via API
+      fetch("/api/registrations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(pendingRegistration),
+      })
+        .then(async (response) => {
+          const data = await response.json()
+          if (!response.ok) {
+            throw new Error(data.error || "Failed to register")
+          }
+          // Show success message and redirect to sign in
+          setError("")
+          alert("Registration submitted successfully! Please wait for admin approval. You will be able to sign in once your account is approved.")
+          router.push("/auth/signin")
+          setLoading(false)
+        })
+        .catch((error) => {
+          console.error("Error saving pending registration:", error)
+          setError(error.message || "Failed to submit registration. Please try again.")
+          setLoading(false)
+        })
     }, 500)
   }
 

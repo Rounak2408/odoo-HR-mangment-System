@@ -12,106 +12,122 @@ export default function UserApprovalsPage() {
 
   useEffect(() => {
     loadPendingRegistrations()
+    // Auto-refresh every 3 seconds to get new registrations
+    const interval = setInterval(() => {
+      loadPendingRegistrations()
+    }, 3000)
+    return () => clearInterval(interval)
   }, [])
 
-  const loadPendingRegistrations = () => {
+  const loadPendingRegistrations = async () => {
     try {
-      const stored = localStorage.getItem("dayflow_pending_registrations")
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        // Filter only pending registrations
-        const pending = parsed.filter((reg: any) => reg.status === "pending")
-        setPendingRegistrations(pending)
+      const response = await fetch("/api/registrations")
+      const result = await response.json()
+      if (result.success) {
+        setPendingRegistrations(result.data || [])
+      } else {
+        console.error("Error loading pending registrations:", result.error)
+        setPendingRegistrations([])
       }
     } catch (error) {
       console.error("Error loading pending registrations:", error)
+      setPendingRegistrations([])
     } finally {
       setLoading(false)
     }
   }
 
-  const handleApprove = (registration: any) => {
+  const handleApprove = async (registration: any) => {
     try {
-      // Remove from pending
-      const stored = localStorage.getItem("dayflow_pending_registrations")
-      if (stored) {
-        const allRegistrations = JSON.parse(stored)
-        const updated = allRegistrations.map((reg: any) =>
-          reg.id === registration.id ? { ...reg, status: "approved", approvedDate: new Date().toISOString() } : reg
-        )
-        localStorage.setItem("dayflow_pending_registrations", JSON.stringify(updated))
-      }
+      const response = await fetch(`/api/registrations/${registration.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "approve" }),
+      })
 
-      // Add to approved users
-      const approvedUsers = localStorage.getItem("dayflow_approved_users")
-      const approvedList = approvedUsers ? JSON.parse(approvedUsers) : []
-      
-      // Create approved user object (without password in main storage, but keep it for login)
-      const approvedUser = {
-        id: registration.employeeId,
-        employeeId: registration.employeeId,
-        email: registration.email,
-        name: registration.name,
-        password: registration.password, // Keep password for login verification
-        role: registration.role,
-        status: "approved",
-        approvedDate: new Date().toISOString(),
-        ...(registration.department && { department: registration.department }),
-        ...(registration.position && { position: registration.position }),
-        ...(registration.phone && { phone: registration.phone }),
-        ...(registration.adminCode && { adminCode: registration.adminCode }),
-        ...(registration.organizationName && { organizationName: registration.organizationName }),
-        ...(registration.permissions && { permissions: registration.permissions }),
-      }
-      
-      approvedList.push(approvedUser)
-      localStorage.setItem("dayflow_approved_users", JSON.stringify(approvedList))
+      const result = await response.json()
+      if (result.success) {
+        alert(`User ${registration.name} has been approved successfully!`)
+        // Also sync to localStorage for backward compatibility
+        try {
+          const approvedUsers = localStorage.getItem("dayflow_approved_users")
+          const approvedList = approvedUsers ? JSON.parse(approvedUsers) : []
+          const approvedUser = {
+            id: registration.employeeId,
+            employeeId: registration.employeeId,
+            email: registration.email,
+            name: registration.name,
+            password: registration.password,
+            role: registration.role,
+            status: "approved",
+            approvedDate: new Date().toISOString(),
+            ...(registration.department && { department: registration.department }),
+            ...(registration.position && { position: registration.position }),
+            ...(registration.phone && { phone: registration.phone }),
+            ...(registration.adminCode && { adminCode: registration.adminCode }),
+            ...(registration.organizationName && { organizationName: registration.organizationName }),
+            ...(registration.permissions && { permissions: registration.permissions }),
+          }
+          approvedList.push(approvedUser)
+          localStorage.setItem("dayflow_approved_users", JSON.stringify(approvedList))
 
-      // If employee, also add to employees list
-      if (registration.role === "employee") {
-        const storedEmployees = localStorage.getItem("dayflow_employees")
-        const employeesList = storedEmployees ? JSON.parse(storedEmployees) : []
-        employeesList.push({
-          id: registration.employeeId,
-          name: registration.name,
-          email: registration.email,
-          department: registration.department || "",
-          position: registration.position || "",
-          phone: registration.phone || "",
-          joinDate: new Date().toISOString().split("T")[0],
-          salary: 50000,
-          profileImage: "/diverse-avatars.png",
-          address: "",
-          emergencyContact: "",
-          emergencyPhone: "",
-        })
-        localStorage.setItem("dayflow_employees", JSON.stringify(employeesList))
+          if (registration.role === "employee") {
+            const storedEmployees = localStorage.getItem("dayflow_employees")
+            const employeesList = storedEmployees ? JSON.parse(storedEmployees) : []
+            employeesList.push({
+              id: registration.employeeId,
+              name: registration.name,
+              email: registration.email,
+              department: registration.department || "",
+              position: registration.position || "",
+              phone: registration.phone || "",
+              joinDate: new Date().toISOString().split("T")[0],
+              salary: 50000,
+              profileImage: "/diverse-avatars.png",
+              address: "",
+              emergencyContact: "",
+              emergencyPhone: "",
+            })
+            localStorage.setItem("dayflow_employees", JSON.stringify(employeesList))
+          }
+        } catch (localError) {
+          console.error("Error syncing to localStorage:", localError)
+        }
+        // Reload pending registrations
+        loadPendingRegistrations()
+      } else {
+        alert(result.error || "Error approving user. Please try again.")
       }
-
-      // Reload pending registrations
-      loadPendingRegistrations()
     } catch (error) {
       console.error("Error approving user:", error)
       alert("Error approving user. Please try again.")
     }
   }
 
-  const handleReject = (registration: any) => {
+  const handleReject = async (registration: any) => {
     if (!confirm(`Are you sure you want to reject ${registration.name}'s registration?`)) {
       return
     }
 
     try {
-      const stored = localStorage.getItem("dayflow_pending_registrations")
-      if (stored) {
-        const allRegistrations = JSON.parse(stored)
-        const updated = allRegistrations.map((reg: any) =>
-          reg.id === registration.id ? { ...reg, status: "rejected", rejectedDate: new Date().toISOString() } : reg
-        )
-        localStorage.setItem("dayflow_pending_registrations", JSON.stringify(updated))
-      }
+      const response = await fetch(`/api/registrations/${registration.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "reject" }),
+      })
 
-      loadPendingRegistrations()
+      const result = await response.json()
+      if (result.success) {
+        alert(`User ${registration.name}'s registration has been rejected.`)
+        // Reload pending registrations
+        loadPendingRegistrations()
+      } else {
+        alert(result.error || "Error rejecting user. Please try again.")
+      }
     } catch (error) {
       console.error("Error rejecting user:", error)
       alert("Error rejecting user. Please try again.")

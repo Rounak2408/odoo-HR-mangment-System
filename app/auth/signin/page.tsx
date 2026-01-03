@@ -46,13 +46,13 @@ export default function SignIn() {
   const [loading, setLoading] = useState(false)
   const [currentQuote, setCurrentQuote] = useState(0)
 
-  const handleSignIn = (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     setLoading(true)
 
     // Mock authentication
-    setTimeout(() => {
+    setTimeout(async () => {
       if (!email || !password) {
         setError("Please enter email and password")
         setLoading(false)
@@ -110,13 +110,14 @@ export default function SignIn() {
         localStorage.setItem("dayflow_user", JSON.stringify(user))
         router.push("/employee/dashboard")
       } else {
-        // Check if this is an approved user from pending registrations
-        const approvedUsers = localStorage.getItem("dayflow_approved_users")
-        if (approvedUsers) {
-          const approvedList = JSON.parse(approvedUsers)
-          const approvedUser = approvedList.find((u: any) => u.email?.toLowerCase() === normalizedEmail)
+        // Check if this is an approved user from API
+        try {
+          const approvedResponse = await fetch(`/api/approved-users?email=${encodeURIComponent(normalizedEmail)}`)
+          const approvedResult = await approvedResponse.json()
           
-          if (approvedUser) {
+          if (approvedResult.success && approvedResult.data) {
+            const approvedUser = approvedResult.data
+            
             // Check password
             if (password !== approvedUser.password) {
               setError("Invalid password. Please enter the correct password.")
@@ -140,18 +141,25 @@ export default function SignIn() {
             setLoading(false)
             return
           }
+        } catch (error) {
+          console.error("Error checking approved users:", error)
         }
         
-        // Check if user is in pending registrations
-        const pendingRegistrations = localStorage.getItem("dayflow_pending_registrations")
-        if (pendingRegistrations) {
-          const pendingList = JSON.parse(pendingRegistrations)
-          const pendingUser = pendingList.find((u: any) => u.email?.toLowerCase() === normalizedEmail)
-          if (pendingUser) {
-            setError("Your account is pending approval. Please wait for admin approval before signing in.")
-            setLoading(false)
-            return
+        // Check if user is in pending registrations via API
+        try {
+          const pendingResponse = await fetch("/api/registrations")
+          const pendingResult = await pendingResponse.json()
+          
+          if (pendingResult.success && pendingResult.data) {
+            const pendingUser = pendingResult.data.find((u: any) => u.email?.toLowerCase() === normalizedEmail)
+            if (pendingUser) {
+              setError("Your account is pending approval. Please wait for admin approval before signing in.")
+              setLoading(false)
+              return
+            }
           }
+        } catch (error) {
+          console.error("Error checking pending registrations:", error)
         }
         
         // If not found in approved or pending, show error
