@@ -315,6 +315,8 @@ This project is open source and available under the [MIT License](LICENSE).
 
 - **Rounak2408** (Owner) - Lead Developer
 - **kumarhimanshu3132** - Co-Developer
+ - **Aditya** - Backend Developer
+ - **dynamic33** (IRASAD) - Frontend Developer
 
 ### Special Thanks
 
